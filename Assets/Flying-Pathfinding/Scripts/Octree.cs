@@ -343,6 +343,9 @@ public class Octree : MonoBehaviour
         root.DrawGizmos();
     }
 
+    /// <summary>
+    /// Check to see if the Octree is still building. If it is then it is not yet usable.
+    /// </summary>
     public bool IsBuilding { get { return toBeSplit.Count > 0; } }
 
 	public class PathRequest
@@ -480,6 +483,9 @@ public class Octree : MonoBehaviour
 			LBD,LFD,LBU,LFU,RBD,RFD,RBU,RFU
 		}
 
+        /// <summary>
+        /// Draw a green (traversable) or red (not traversable) box around the bounds of this node and any children it contains.
+        /// </summary>
         internal void DrawGizmos()
         {
             if (Empty)

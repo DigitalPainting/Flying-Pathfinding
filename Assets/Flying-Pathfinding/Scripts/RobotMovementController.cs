@@ -1,29 +1,17 @@
-﻿using System;
-using System.Collections;
-using System.Collections.Generic;
-using UnityEngine;
-using UnityEngine.AI;
+﻿using UnityEngine;
+using wizardscode.agent;
 
-public class RobotMovementController : MonoBehaviour
+public class RobotMovementController : BaseMovementController
 {
-    [SerializeField] private Transform target;
-    [SerializeField] private float maxDistanceRebuildPath = 1;
-    [SerializeField] private float acceleration = 1;
-    [Tooltip("The minimum distance an agent must get from an object before it is considered to have reached it.")]
-    public float minReachDistance = 2f;
+    [Header("Pathfinding")]
+    [SerializeField] protected Octree octree;
+    [SerializeField] protected float maxDistanceRebuildPath = 1;
+    [SerializeField] protected LayerMask playerSeeLayerMask = -1;
+    [SerializeField] protected GameObject playerObject;
     [Tooltip("The minimum distance to maintain from an object that the agent is following.")]
     public float minFollowDistance = 4f;
-    [SerializeField] private float pathPointRadius = 0.2f;
-    [SerializeField] private Octree octree;
-    [SerializeField] private LayerMask playerSeeLayerMask = -1;
-    [SerializeField] private GameObject playerObject;
-    private Octree.PathRequest oldPath;
-    private Octree.PathRequest newPath;
-    new private Rigidbody rigidbody;
-    private Vector3 currentDestination;
-    private Vector3 lastDestination;
-    new private Collider collider;
-    
+    [SerializeField] protected float pathPointRadius = 0.2f;
+
     [Header("Height")]
     [Tooltip("preferred height to fly at.")]
     public float preferredFlightHeight = 1.5f;
@@ -32,11 +20,10 @@ public class RobotMovementController : MonoBehaviour
     [Tooltip("Maximum height to fly at.")]
     public float maxFlightHeight = 7;
 
-    public Transform Target
-    {
-        get { return target; }
-        set { target = value; }
-    }
+    protected Octree.PathRequest oldPath;
+    protected Octree.PathRequest newPath;
+    new protected Rigidbody rigidbody;
+    new protected Collider collider;
 
     public Octree Octree
     {
@@ -228,6 +215,8 @@ public class RobotMovementController : MonoBehaviour
                 Gizmos.DrawRay(path.Path[i], Vector3.ClampMagnitude(rigidbody.position - path.Path[i], pathPointRadius));
                 Gizmos.DrawWireSphere(path.Path[i], pathPointRadius);
                 Gizmos.DrawLine(path.path[i], path.Path[i + 1]);
+
+                Octree.GetNode(path.Path[i]).DrawGizmos();
             }
         }
     }

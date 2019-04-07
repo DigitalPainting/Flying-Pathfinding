@@ -1,33 +1,43 @@
 ﻿using UnityEngine;
 using wizardscode.agent;
+using wizardscode.ai;
 
 public class RobotMovementController : BaseMovementController
 {
     [Header("Pathfinding")]
     [SerializeField] protected Octree octree;
+    [Tooltip("The maximum distance from the final target that will trigger a rebuild of the path.")]
     [SerializeField] protected float maxDistanceRebuildPath = 1;
-    [SerializeField] protected LayerMask playerSeeLayerMask = -1;
-    [SerializeField] protected GameObject playerObject;
-    [Tooltip("The minimum distance to maintain from an object that the agent is following.")]
-    public float minFollowDistance = 4f;
+    [Tooltip("The minimum time between path rebuilds, in seconds.")]
+    [SerializeField] protected float minTimeBetweenRebuilds = 5f;
     [SerializeField] protected float pathPointRadius = 0.2f;
 
-    [Header("Height")]
-    [Tooltip("preferred height to fly at.")]
-    public float preferredFlightHeight = 1.5f;
-    [Tooltip("Minimum height to fly at (does not impact landing).")]
-    public float minFlightHeight = 1f;
-    [Tooltip("Maximum height to fly at.")]
-    public float maxFlightHeight = 7;
-
+    private float timeToNextRebuild;
     protected Octree.PathRequest oldPath;
     protected Octree.PathRequest newPath;
     new protected Rigidbody rigidbody;
     new protected Collider collider;
 
+    FlyingMovementBrain movementBrain;
+    
     public Octree Octree
     {
         get { return octree; }
+    }
+
+    internal float PreferredFlightHeight
+    {
+        get { return (movementBrain.MovementController.maximumFlyHeight - movementBrain.MovementController.minimumFlyHeight) / 2; }
+    }
+
+    internal float MinimumFlightHeight
+    {
+        get { return movementBrain.MovementController.minimumFlyHeight; }
+    }
+
+    internal float MaximumFlightHeight
+    {
+        get { return movementBrain.MovementController.maximumFlyHeight; }
     }
 
     // Use this for initialization
@@ -40,18 +50,22 @@ public class RobotMovementController : BaseMovementController
         {
             Debug.LogError("There is no `octree` component in your seen. Please add one so that Flying-Pathfinding can work.");
         }
+
+        movementBrain = GetComponent<FlyingMovementBrain>();
+
+        timeToNextRebuild = minTimeBetweenRebuilds;
     }
 
     // Update is called once per frame
     void FixedUpdate()
     {
-        if (target == null)
+        if (MovementBrain.Target == null)
         {
             return;
         }
-        if ((newPath == null || !newPath.isCalculating) && Vector3.SqrMagnitude(target.transform.position - lastDestination) > maxDistanceRebuildPath && (!CanSeePlayer() || Vector3.Distance(target.position, transform.position) > minFollowDistance) && !octree.IsBuilding)
+        if ((newPath == null || !newPath.isCalculating) && Vector3.SqrMagnitude(MovementBrain.Target.transform.position - lastDestination) > maxDistanceRebuildPath && !octree.IsBuilding)
         {
-            lastDestination = target.transform.position;
+            lastDestination = MovementBrain.Target.transform.position;
 
             oldPath = newPath;
             newPath = octree.GetPath(transform.position, lastDestination, this);
@@ -84,21 +98,56 @@ public class RobotMovementController : BaseMovementController
 		}*/
 
         var curPath = Path;
-
-        if (!curPath.isCalculating && curPath != null && curPath.Path.Count > 0)
+        timeToNextRebuild -= Time.deltaTime;
+        float distanceFromTarget = Vector3.Distance(transform.position, MovementBrain.Target.position);
+        if (timeToNextRebuild < 0 && distanceFromTarget > maxDistanceRebuildPath)
         {
-            if (Vector3.Distance(transform.position, target.position) < minFollowDistance && CanSeePlayer())
+            oldPath = newPath;
+            newPath = octree.GetPath(transform.position, lastDestination, this);
+            timeToNextRebuild = minTimeBetweenRebuilds;
+        }
+        else if (curPath != null && !curPath.isCalculating && curPath.Path.Count > 0)
+        {
+            float distanceFromWaypoint = Vector3.Distance(transform.position, curPath.Path[0]);
+
+            if (MovementBrain.MovementController.useRootMotion)
             {
-                curPath.Reset();
+                float speed = MovementBrain.Speed;
+                if (distanceFromWaypoint > 5 * MovementBrain.MovementController.minReachDistance)
+                {
+                    if (speed <= MovementBrain.MovementController.maxSpeed)
+                    {
+                        speed += Time.deltaTime * MovementBrain.MovementController.Acceleration;
+                    }
+                }
+                else if (distanceFromWaypoint <= MovementBrain.MovementController.minReachDistance)
+                {
+                    if (speed >= 0)
+                    {
+                        speed -= Time.deltaTime * MovementBrain.MovementController.Acceleration;
+                    }
+                }
+                else
+                {
+                    if (speed <= MovementBrain.MovementController.normalMovementSpeed)
+                    {
+                        speed += Time.deltaTime * MovementBrain.MovementController.Acceleration;
+                    }
+                    else
+                    {
+                        speed -= Time.deltaTime * MovementBrain.MovementController.Acceleration;
+                    }
+                }
+                MovementBrain.Speed = speed;
             }
-
-            currentDestination = curPath.Path[0] + Vector3.ClampMagnitude(rigidbody.position - curPath.Path[0], pathPointRadius);
-
-            rigidbody.velocity += Vector3.ClampMagnitude(currentDestination - transform.position, 1) * Time.deltaTime * acceleration;
-            float sqrMinReachDistance = minReachDistance * minReachDistance;
+            else
+            {
+                rigidbody.velocity += Vector3.ClampMagnitude(curPath.Path[0] - transform.position, 1) * Time.deltaTime * MovementBrain.MovementController.Acceleration;
+            }
+            float sqrMinReachDistance = MovementBrain.MovementController.minReachDistance * MovementBrain.MovementController.minReachDistance;
 
             Vector3 predictedPosition = rigidbody.position + rigidbody.velocity * Time.deltaTime;
-            float shortestPathDistance = Vector3.SqrMagnitude(predictedPosition - currentDestination);
+            float shortestPathDistance = Vector3.SqrMagnitude(predictedPosition - curPath.Path[0]);
             int shortestPathPoint = 0;
 
             for (int i = 0; i < curPath.Path.Count; i++)
@@ -130,19 +179,19 @@ public class RobotMovementController : BaseMovementController
         else
         {
             // We don't have a path so we will slow to a stop
-            // FIMXE: what if we are stuck and we just need to find a path?
-            rigidbody.velocity -= rigidbody.velocity * Time.deltaTime * acceleration;
+            if (MovementBrain.MovementController.useRootMotion)
+            {
+                float speed = MovementBrain.Speed - Time.deltaTime * MovementBrain.MovementController.Acceleration;
+                if (speed >= 0)
+                {
+                    MovementBrain.Speed = speed;
+                }
+            }
+            else
+            {
+                rigidbody.velocity -= rigidbody.velocity * Time.deltaTime * MovementBrain.MovementController.Acceleration;
+            }
         }
-    }
-
-    private bool CanSeePlayer()
-    {
-        RaycastHit hit;
-        if (Physics.Raycast(new Ray(transform.position, transform.position - target.position), out hit, Vector3.Distance(transform.position, target.position) + 1, playerSeeLayerMask))
-        {
-            return hit.transform.gameObject == playerObject;
-        }
-        return false;
     }
 
     private Octree.PathRequest Path
@@ -177,11 +226,11 @@ public class RobotMovementController : BaseMovementController
         {
             if (Path != null && Path.Path.Count > 0)
             {
-                return currentDestination;
+                return Path.Path[0];
             }
             else
             {
-                return target.position;
+                return MovementBrain.Target.position;
             }
         }
     }
@@ -210,7 +259,7 @@ public class RobotMovementController : BaseMovementController
             for (int i = 0; i < path.Path.Count - 1; i++)
             {
                 Gizmos.color = Color.yellow;
-                Gizmos.DrawWireSphere(path.Path[i], minReachDistance);
+                Gizmos.DrawWireSphere(path.Path[i], MovementBrain.MovementController.minReachDistance);
                 Gizmos.color = Color.red;
                 Gizmos.DrawRay(path.Path[i], Vector3.ClampMagnitude(rigidbody.position - path.Path[i], pathPointRadius));
                 Gizmos.DrawWireSphere(path.Path[i], pathPointRadius);

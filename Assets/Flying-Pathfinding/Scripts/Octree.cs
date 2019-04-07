@@ -134,7 +134,7 @@ public class Octree : MonoBehaviour
 			OctreeElement endNode = GetNode(request.to);
 			if (startNode == null || endNode == null) return;
 			weights.Add(startNode, startNode.BaseCost);
-            fronteer.Enqueue(new OctreeElementQueueElemenet(startNode), startNode.WeightedCost(request.controller.preferredFlightHeight, request.controller.minFlightHeight, request.controller.maxFlightHeight));
+            fronteer.Enqueue(new OctreeElementQueueElemenet(startNode), startNode.WeightedCost(request.controller.PreferredFlightHeight, request.controller.MinimumFlightHeight, request.controller.MaximumFlightHeight));
 			OctreeElement current;
 			OctreeElement closest = startNode;
 			float closestDistance = Vector3.SqrMagnitude(startNode.Bounds.center - request.to);
@@ -161,7 +161,7 @@ public class Octree : MonoBehaviour
 								closest = next;
 							}
 							float distance = (next.Bounds.center - request.to).sqrMagnitude;
-							float newWeight = weights[current] + next.WeightedCost(request.controller.preferredFlightHeight, request.controller.minFlightHeight, request.controller.maxFlightHeight) + distance;
+							float newWeight = weights[current] + next.WeightedCost(request.controller.PreferredFlightHeight, request.controller.MinimumFlightHeight, request.controller.MaximumFlightHeight) + distance;
 							if (!weights.ContainsKey(next) || newWeight < weights[next])
 							{
 								weights[next] = newWeight;
@@ -295,12 +295,6 @@ public class Octree : MonoBehaviour
 	internal OctreeElement GetNode(Vector3 position)
 	{
         OctreeElement node = GetNode(root, position);
-#if UNITY_EDITOR
-        if (node == null)
-        {
-            Debug.LogError("Requested a node containing a position " + position + " which is not within the Octree. This should not happen. First check that the position is within the Octree using Contains(position)");
-        }
-#endif
         return node;
     }
 

@@ -122,9 +122,13 @@ public class RobotMovementController : BaseMovementController
                 }
                 else if (distanceFromWaypoint <= MovementBrain.MovementController.minReachDistance)
                 {
-                    if (speed >= 0)
+                    if (speed > 0)
                     {
                         speed -= Time.deltaTime * MovementBrain.MovementController.Acceleration;
+                    }
+                    else if (speed < 0)
+                    {
+                        speed += Time.deltaTime * MovementBrain.MovementController.Acceleration;
                     }
                 }
                 else
@@ -179,15 +183,7 @@ public class RobotMovementController : BaseMovementController
         else
         {
             // We don't have a path so we will slow to a stop
-            if (MovementBrain.MovementController.useRootMotion)
-            {
-                float speed = MovementBrain.Speed - Time.deltaTime * MovementBrain.MovementController.Acceleration;
-                if (speed >= 0)
-                {
-                    MovementBrain.Speed = speed;
-                }
-            }
-            else
+            if (!MovementBrain.MovementController.useRootMotion)
             {
                 rigidbody.velocity -= rigidbody.velocity * Time.deltaTime * MovementBrain.MovementController.Acceleration;
             }

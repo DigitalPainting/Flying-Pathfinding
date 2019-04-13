@@ -1,6 +1,7 @@
 ﻿using UnityEngine;
 using wizardscode.agent;
 using wizardscode.ai;
+using wizardscode.digitalpainting.agent;
 
 public class RobotMovementController : BaseMovementController
 {
@@ -109,8 +110,8 @@ public class RobotMovementController : BaseMovementController
         else if (curPath != null && !curPath.isCalculating && curPath.Path.Count > 0)
         {
             float distanceFromWaypoint = Vector3.Distance(transform.position, curPath.Path[0]);
-
-            if (MovementBrain.MovementController.useRootMotion)
+            
+            if (MovementBrain.MovementController.useRootMotion && MovementBrain.AgentController.MovementType != BaseAgentController.MovementStyle.Idle)
             {
                 float speed = MovementBrain.Speed;
                 if (distanceFromWaypoint > 5 * MovementBrain.MovementController.minReachDistance)
@@ -120,26 +121,16 @@ public class RobotMovementController : BaseMovementController
                         speed += Time.deltaTime * MovementBrain.MovementController.Acceleration;
                     }
                 }
-                else if (distanceFromWaypoint <= MovementBrain.MovementController.minReachDistance)
+                else if (distanceFromWaypoint > MovementBrain.MovementController.minReachDistance)
+                
                 {
-                    if (speed > 0)
+                    if (speed >= MovementBrain.MovementController.maxSpeed * MovementBrain.MovementController.slowMovementFactor)
                     {
                         speed -= Time.deltaTime * MovementBrain.MovementController.Acceleration;
-                    }
-                    else if (speed < 0)
-                    {
-                        speed += Time.deltaTime * MovementBrain.MovementController.Acceleration;
-                    }
-                }
-                else
-                {
-                    if (speed <= MovementBrain.MovementController.normalMovementSpeed)
-                    {
-                        speed += Time.deltaTime * MovementBrain.MovementController.Acceleration;
                     }
                     else
                     {
-                        speed -= Time.deltaTime * MovementBrain.MovementController.Acceleration;
+                        speed += Time.deltaTime * MovementBrain.MovementController.Acceleration;
                     }
                 }
                 MovementBrain.Speed = speed;
@@ -183,7 +174,11 @@ public class RobotMovementController : BaseMovementController
         else
         {
             // We don't have a path so we will slow to a stop
-            if (!MovementBrain.MovementController.useRootMotion)
+            if (MovementBrain.MovementController.useRootMotion)
+            {
+                MovementBrain.AgentController.MovementType = BaseAgentController.MovementStyle.Idle;
+            }
+            else
             {
                 rigidbody.velocity -= rigidbody.velocity * Time.deltaTime * MovementBrain.MovementController.Acceleration;
             }

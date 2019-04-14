@@ -111,7 +111,7 @@ public class RobotMovementController : BaseMovementController
         {
             float distanceFromWaypoint = Vector3.Distance(transform.position, curPath.Path[0]);
             
-            if (MovementBrain.MovementController.useRootMotion && MovementBrain.AgentController.MovementType != BaseAgentController.MovementStyle.Idle)
+            if (MovementBrain.MovementController.useRootMotion && movementBrain.AgentController.IsIdle())
             {
                 float speed = MovementBrain.Speed;
                 if (distanceFromWaypoint > 5 * MovementBrain.MovementController.minReachDistance)
@@ -176,7 +176,7 @@ public class RobotMovementController : BaseMovementController
             // We don't have a path so we will slow to a stop
             if (MovementBrain.MovementController.useRootMotion)
             {
-                MovementBrain.AgentController.MovementType = BaseAgentController.MovementStyle.Idle;
+                MovementBrain.AgentController.Idle();
             }
             else
             {
